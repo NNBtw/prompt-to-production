@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+GH-202401,Flooding,Urgent,"Description mentions ""flooded"", ""rain"", which indicates Flooding; assigned Urgent priority.",
+GH-202402,Other,Standard,"Description mentions both ""flooded"", ""drain"", so the category is genuinely ambiguous between Flooding and Drain Blockage.",NEEDS_REVIEW
+GH-202406,Drain Blockage,Standard,"Description mentions ""drain"", which indicates Drain Blockage; assigned Standard priority.",
+GH-202407,Drain Blockage,Standard,"Description mentions ""drain"", which indicates Drain Blockage; assigned Standard priority.",
+GH-202410,Pothole,Standard,"Description mentions ""pothole"", which indicates Pothole; assigned Standard priority.",
+GH-202411,Pothole,Urgent,"Description mentions ""pothole"", which indicates Pothole; assigned Urgent priority.",
+GH-202412,Pothole,Urgent,"Description mentions ""pothole"", which indicates Pothole; assigned Urgent priority.",
+GH-202417,Other,Standard,"Description mentions both ""garbage"", ""waste"", ""heritage"", so the category is genuinely ambiguous between Waste and Heritage Damage.",NEEDS_REVIEW
+GH-202420,Noise,Standard,"Description mentions ""drilling"", which indicates Noise; assigned Standard priority.",
+GH-202422,Road Damage,Urgent,"Description mentions ""collapsed"", ""crater"", which indicates Road Damage; assigned Urgent priority.",
+GH-202424,Flooding,Standard,"Description mentions ""flood"", ""rain"", which indicates Flooding; assigned Standard priority.",
+GH-202428,Waste,Standard,"Description mentions ""waste"", which indicates Waste; assigned Standard priority.",
+GH-202432,Noise,Standard,"Description mentions ""idling"", which indicates Noise; assigned Standard priority.",
+GH-202448,Other,Standard,"Description mentions both ""flooding"", ""drain"", so the category is genuinely ambiguous between Flooding and Drain Blockage.",NEEDS_REVIEW
+GH-202438,Flooding,Standard,"Description mentions ""rainwater"", which indicates Flooding; assigned Standard priority.",

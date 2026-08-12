@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+PM-202401,Pothole,Standard,"Description mentions ""pothole"", which indicates Pothole; assigned Standard priority.",
+PM-202402,Pothole,Urgent,"Description mentions ""pothole"", which indicates Pothole; assigned Urgent priority.",
+PM-202406,Flooding,Standard,"Description mentions ""flooded"", ""rain"", which indicates Flooding; assigned Standard priority.",
+PM-202408,Other,Standard,"Description mentions both ""flooded"", ""drain"", so the category is genuinely ambiguous between Flooding and Drain Blockage.",NEEDS_REVIEW
+PM-202410,Streetlight,Standard,"Description mentions ""streetlight"", which indicates Streetlight; assigned Standard priority.",
+PM-202411,Streetlight,Urgent,"Description mentions ""streetlight"", which indicates Streetlight; assigned Urgent priority.",
+PM-202413,Waste,Standard,"Description mentions ""garbage"", ""bin"", which indicates Waste; assigned Standard priority.",
+PM-202418,Noise,Low,"Description mentions ""music"", which indicates Noise; assigned Low priority.",
+PM-202419,Road Damage,Standard,"Description mentions ""cracked"", ""sinking"", which indicates Road Damage; assigned Standard priority.",
+PM-202420,Road Damage,Urgent,"Description mentions ""manhole"", which indicates Road Damage; assigned Urgent priority.",
+PM-202427,Flooding,Standard,"Description mentions ""flood"", ""rain"", which indicates Flooding; assigned Standard priority.",
+PM-202428,Waste,Standard,"Description mentions ""dead animal"", which indicates Waste; assigned Standard priority.",
+PM-202430,Other,Standard,"Description mentions both ""lights out"", ""heritage"", so the category is genuinely ambiguous between Streetlight and Heritage Damage.",NEEDS_REVIEW
+PM-202433,Waste,Standard,"Description mentions ""waste"", which indicates Waste; assigned Standard priority.",
+PM-202446,Road Damage,Urgent,"Description mentions ""footpath"", ""tiles"", which indicates Road Damage; assigned Urgent priority.",

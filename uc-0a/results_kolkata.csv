@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+KM-202401,Other,Standard,"Description mentions both ""lamp"", ""heritage"", so the category is genuinely ambiguous between Streetlight and Heritage Damage.",NEEDS_REVIEW
+KM-202402,Other,Standard,"Description mentions both ""cobblestone"", ""historic"", so the category is genuinely ambiguous between Road Damage and Heritage Damage.",NEEDS_REVIEW
+KM-202405,Noise,Low,"Description mentions ""band"", which indicates Noise; assigned Low priority.",
+KM-202409,Pothole,Standard,"Description mentions ""pothole"", which indicates Pothole; assigned Standard priority.",
+KM-202410,Pothole,Standard,"Description mentions ""pothole"", which indicates Pothole; assigned Standard priority.",
+KM-202411,Pothole,Standard,"Description mentions ""pothole"", which indicates Pothole; assigned Standard priority.",
+KM-202415,Drain Blockage,Standard,"Description mentions ""draining"", which indicates Drain Blockage; assigned Standard priority.",
+KM-202418,Waste,Standard,"Description mentions ""waste"", which indicates Waste; assigned Standard priority.",
+KM-202421,Road Damage,Urgent,"Description mentions ""footpath"", ""sinking"", which indicates Road Damage; assigned Urgent priority.",
+KM-202422,Road Damage,Standard,"Description mentions ""buckled"", which indicates Road Damage; assigned Standard priority.",
+KM-202426,Heritage Damage,Standard,"Description mentions ""heritage"", which indicates Heritage Damage; assigned Standard priority.",
+KM-202430,Road Damage,Standard,"Description mentions ""subsided"", which indicates Road Damage; assigned Standard priority.",
+KM-202434,Other,Standard,"Description mentions both ""paving"", ""heritage"", so the category is genuinely ambiguous between Road Damage and Heritage Damage.",NEEDS_REVIEW
+KM-202436,Streetlight,Standard,"Description mentions ""darkness"", which indicates Streetlight; assigned Standard priority.",
+KM-202438,Other,Standard,"Description mentions both ""amplifier"", ""heritage"", so the category is genuinely ambiguous between Noise and Heritage Damage.",NEEDS_REVIEW
