@@ -1,154 +1,209 @@
 """
-UC-0A — Complaint Classifier
-One complaint row in → category + priority + reason + flag out.
+UC-0A Complaint Classifier.
+Classifies citizen complaint rows into an operational category, response
+priority, one-sentence justification citing the description verbatim, and an
+ambiguity flag, per uc-0a/agents.md enforcement rules.
 """
 import argparse
 import csv
 import re
+import sys
 
 CATEGORIES = [
-    "Pothole", "Flooding", "Streetlight", "Waste", "Noise", "Road Damage",
-    "Heritage Damage", "Heat Hazard", "Drain Blockage", "Other",
+    "Pothole",
+    "Flooding",
+    "Drain Blockage",
+    "Streetlight",
+    "Noise",
+    "Heat Hazard",
+    "Heritage Damage",
+    "Road Damage",
+    "Waste",
 ]
 
-CATEGORY_KEYWORDS = {
-    "Pothole": ["pothole", "pot hole"],
-    "Flooding": ["flood", "flooded", "flooding", "waterlog", "waterlogged", "rainwater", "rain"],
-    "Streetlight": ["streetlight", "street light", "lights out", "lamp", "unlit", "darkness"],
-    "Waste": ["garbage", "waste", "trash", "rubbish", "bin", "litter", "dead animal", "carcass"],
-    "Noise": ["noise", "music", "loud", "honk", "drilling", "idling", "amplifier", "band"],
-    "Road Damage": ["pavement", "paving", "footpath", "manhole", "cracked", "cracking", "sinking", "subsided", "subsidence", "collapsed", "crater", "tiles", "buckled", "cobblestone"],
-    "Heritage Damage": ["heritage", "monument", "historic"],
-    "Heat Hazard": ["heat", "heatwave", "temperature", "sun", "melting", "bubbling"],
-    "Drain Blockage": ["drain", "drainage", "draining", "sewage", "choked drain"],
+CATEGORY_PATTERNS = {
+    "Pothole": [r"\bpotholes?\b"],
+    "Flooding": [r"\bflood\w*\b", r"\bwaterlog\w*\b", r"\brainwater\b"],
+    "Drain Blockage": [r"\bdrain\w*\b", r"\bblocked?\w*\b|\bclogg?ed\b|\bchoked?\b"],
+    "Streetlight": [
+        r"\bstreet\s?lights?\b",
+        r"\blights? out\b|\bunlit\b|\bdarkness\b|\bdark at night\b",
+        r"\blamp ?posts?\b",
+    ],
+    "Noise": [
+        r"\bnoise\b|\bloud\b",
+        r"\bmusic\b|\bamp\w*ifiers?\b|\bband playing\b|\bloudspeakers?\b",
+        r"\bdrilling\b|\bidling\b|\bhonk\w*\b",
+        r"\bmidnight\b|\bat \d{1,2}\s?(am|pm)\b",
+    ],
+    "Heat Hazard": [
+        r"\bheat\w*\b",
+        r"\btemperatur\w*\b|\b\d+\s?°?C\b",
+        r"\bmelt\w*\b|\bscorch\w*\b|\bbubbl\w*\b|\bstoring heat\b",
+    ],
+    "Heritage Damage": [
+        r"\bheritage\b|\bhistoric\b",
+        r"\bmonuments?\b|\bforts?\b|\bpalaces?\b|\bstep wells?\b|\bancient\b|\bcobblestones?\b",
+        r"\bdefaced\b|\bknocked over\b|\bbroken up\b|\bnot replaced\b|\bnot restored\b",
+    ],
+    "Road Damage": [
+        r"\bfootpath\b|\bpavement\b",
+        r"\bcracked?\b|\bsubside\w*\b|\bbuckled?\b|\bcollaps\w*\b|\bcrater\b|\bsink\w*\b|\bcave.?in\b|\bupturned\b",
+        r"\bdividers?\b|\bmanholes?\b",
+    ],
+    "Waste": [
+        r"\bwaste\b|\bgarbage\b|\brubbish\b|\btrash\b|\blitter\b",
+        r"\boverflow\w*\b|\bnot cleared\b|\buncleared\b|\bdump(ed|ing)?\b|\bpiles?\b",
+        r"\bdead animal\b|\bbins?\b",
+    ],
 }
 
-URGENT_PATTERN = re.compile(
-    r"\b(injury|injuries|injured|child|children|school|hospital|hospitalised|hospitalized|ambulance|fire|hazard|fell|collapse|collapsed|collapsing)\b",
-    re.IGNORECASE,
-)
-LOW_PATTERN = re.compile(r"\b(music|noise|loud|band)\b", re.IGNORECASE)
-STANDARD_PATTERN = re.compile(
-    r"\b(dark|darkness|safety|smell|blocked|standing|water|dead|health|risk|stranded|danger)\b",
+SEVERITY_PATTERN = re.compile(
+    r"injur\w*|child\w*|school\w*|hospital\w*|ambulances?|fires?|hazards?\w*|collaps\w*|\bfell\b",
     re.IGNORECASE,
 )
 
-OUTPUT_FIELDS = ["complaint_id", "category", "priority", "reason", "flag"]
+LOW_PRIORITY_PATTERN = re.compile(
+    r"\bresolved\b|\balready\s(?:fixed|repaired|cleared|cleaned)\b|\bno longer\b|\bminor\b",
+    re.IGNORECASE,
+)
+
+OUTPUT_COLUMNS = ["complaint_id", "category", "priority", "reason", "flag"]
+MAX_CITED_TERMS = 3
 
 
-def assign_priority(description: str) -> str:
-    if URGENT_PATTERN.search(description):
-        return "Urgent"
-    if LOW_PATTERN.search(description) and not STANDARD_PATTERN.search(description):
-        return "Low"
-    return "Standard"
+def _find_terms(description, patterns):
+    terms = []
+    for pattern in patterns:
+        match = re.search(pattern, description, re.IGNORECASE)
+        if not match:
+            continue
+        term = match.group(0)
+        lowered = term.lower()
+        if any(lowered in seen.lower() or seen.lower() in lowered for seen in terms):
+            continue
+        terms.append(term)
+    return terms
 
 
-KEYWORD_PATTERNS = {
-    category: [
-        (kw, re.compile(r"\b" + re.escape(kw) + r"s?\b", re.IGNORECASE))
-        for kw in keywords
-    ]
-    for category, keywords in CATEGORY_KEYWORDS.items()
-}
+def _quote(terms):
+    shown = terms[:MAX_CITED_TERMS]
+    quoted = ", ".join('"%s"' % term for term in shown)
+    return quoted
 
 
-CATEGORY_OVERRIDES = {"Flooding": "Pothole"}
+def _one_sentence(text):
+    return text.strip().rstrip(".") + "."
 
 
-def match_categories(description: str) -> dict:
-    matched = {}
-    for category, entries in KEYWORD_PATTERNS.items():
-        found = [kw for kw, pattern in entries if pattern.search(description)]
-        if found:
-            matched[category] = found
-    for secondary, primary in CATEGORY_OVERRIDES.items():
-        if primary in matched and secondary in matched:
-            del matched[secondary]
-    return matched
-
-
-def classify_complaint(row: dict) -> dict:
+def classify_complaint(row):
     """
-    Classify a single complaint row.
-    Returns: dict with keys: complaint_id, category, priority, reason, flag
+    Classify one complaint row.
+    Returns dict with keys: complaint_id, category, priority, reason, flag.
+    Never raises: falls back to Other + NEEDS_REVIEW on unusable input.
     """
     complaint_id = (row.get("complaint_id") or "").strip()
-    description = (row.get("description") or "").strip()
+    try:
+        description = (row.get("description") or "").strip()
+    except AttributeError:
+        description = ""
 
+    fallback = {
+        "complaint_id": complaint_id,
+        "category": "Other",
+        "priority": "Standard",
+        "reason": "Description missing or unreadable; information needed to determine a category.",
+        "flag": "NEEDS_REVIEW",
+    }
     if not description:
+        return fallback
+
+    scored = []
+    for category in CATEGORIES:
+        terms = _find_terms(description, CATEGORY_PATTERNS[category])
+        if terms:
+            scored.append((len(terms), CATEGORIES.index(category), category, terms))
+
+    severity_matches = SEVERITY_PATTERN.findall(description)
+    low_matches = LOW_PRIORITY_PATTERN.findall(description)
+
+    if not scored:
         return {
             "complaint_id": complaint_id,
             "category": "Other",
-            "priority": "Standard",
-            "reason": "Description is missing or empty, so the complaint cannot be classified from the description alone.",
+            "priority": "Urgent" if severity_matches else "Standard",
+            "reason": "Description lacks recognizable category indicators; information about the reported problem type is missing.",
             "flag": "NEEDS_REVIEW",
         }
 
-    priority = assign_priority(description)
-    matched = match_categories(description)
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    top_score, _, category, terms = scored[0]
+    runner_up_score = scored[1][0] if len(scored) > 1 else 0
 
-    if not matched:
-        return {
-            "complaint_id": complaint_id,
-            "category": "Other",
-            "priority": priority,
-            "reason": f"No category keyword such as \"pothole\", \"flood\", or \"garbage\" appears in the description \"{description[:80]}\".",
-            "flag": "NEEDS_REVIEW",
-        }
+    ambiguous = len(scored) > 1 and runner_up_score >= 1 and top_score - runner_up_score <= 1
 
-    if len(matched) > 1:
-        categories = " and ".join(matched.keys())
-        terms = ", ".join(f'"{t}"' for kw in matched.values() for t in kw)
-        return {
-            "complaint_id": complaint_id,
-            "category": "Other",
-            "priority": priority,
-            "reason": f"Description mentions both {terms}, so the category is genuinely ambiguous between {categories}.",
-            "flag": "NEEDS_REVIEW",
-        }
+    if severity_matches:
+        priority = "Urgent"
+        extra = [term for term in severity_matches if term.lower() not in [t.lower() for t in terms]]
+        priority_note = "; marked Urgent due to %s" % _quote(extra) if extra else ""
+    elif low_matches:
+        priority = "Low"
+        priority_note = "; set to Low as impact reads as minor"
+    else:
+        priority = "Standard"
+        priority_note = ""
 
-    category, keywords = next(iter(matched.items()))
-    terms = ", ".join(f'"{t}"' for t in keywords)
+    reason = _one_sentence(
+        "%s supported by %s in the description%s" % (category, _quote(terms), priority_note)
+    )
     return {
         "complaint_id": complaint_id,
         "category": category,
         "priority": priority,
-        "reason": f"Description mentions {terms}, which indicates {category}; assigned {priority} priority.",
-        "flag": "",
+        "reason": reason,
+        "flag": "NEEDS_REVIEW" if ambiguous else "",
     }
 
 
-def batch_classify(input_path: str, output_path: str):
+def batch_classify(input_path, output_path):
     """
     Read input CSV, classify each row, write results CSV.
-    Flags nulls/malformed rows instead of crashing; always writes an output.
+    Never drops rows: malformed rows are written back as Other + NEEDS_REVIEW.
     """
-    rows = []
-    with open(input_path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                rows.append(classify_complaint(row))
-            except Exception:
-                rows.append({
-                    "complaint_id": (row.get("complaint_id") or "").strip(),
-                    "category": "Other",
-                    "priority": "Standard",
-                    "reason": "Row could not be parsed; needs review.",
-                    "flag": "NEEDS_REVIEW",
-                })
+    try:
+        handle = open(input_path, "r", encoding="utf-8-sig", newline="")
+    except OSError as error:
+        print("Error: cannot read input file %s (%s)" % (input_path, error))
+        sys.exit(1)
 
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=OUTPUT_FIELDS)
+    results = []
+    with handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            normalized = {key: value for key, value in row.items() if key is not None}
+            try:
+                results.append(classify_complaint(normalized))
+            except Exception:
+                results.append(
+                    {
+                        "complaint_id": (normalized.get("complaint_id") or "").strip(),
+                        "category": "Other",
+                        "priority": "Standard",
+                        "reason": "Row malformed; information needed to determine a category.",
+                        "flag": "NEEDS_REVIEW",
+                    }
+                )
+
+    with open(output_path, "w", encoding="utf-8", newline="") as out_handle:
+        writer = csv.DictWriter(out_handle, fieldnames=OUTPUT_COLUMNS)
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(results)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="UC-0A Complaint Classifier")
-    parser.add_argument("--input",  required=True, help="Path to test_[city].csv")
+    parser.add_argument("--input", required=True, help="Path to test_[city].csv")
     parser.add_argument("--output", required=True, help="Path to write results CSV")
     args = parser.parse_args()
     batch_classify(args.input, args.output)
-    print(f"Done. Results written to {args.output}")
+    print("Done. Results written to %s" % args.output)
